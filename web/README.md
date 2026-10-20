@@ -37,6 +37,13 @@ refusal — the game itself rejects a foreign archive with the original's messag
 module (`/static`) and copied into `/game` at every start (the keymap only when none is
 stored, so a rebind survives).
 
+**Players** (beside Play) is `--coop=N`, 2 by default: local co-op with one game controller
+per player — SDL reads the browser's Gamepad API ("Standard Gamepad" layout), the first
+controller is player 1 beside the keyboard, the second player 2. A browser shows a pad to
+the page only after one of its buttons is pressed. Player 2 owns a viking from the level's
+start with or without a controller (the switch skips it), so a solo game is Players 1. A
+`--coop=` among the arguments wins.
+
 The *Advanced* section passes command-line arguments (`--debug` …) and resets the
 stored settings or everything.
 
@@ -80,8 +87,7 @@ with the original's "Data.dat has been corrupted". The workflow runs both.
 
 ## Not in the browser build
 
-- **Co-op over the network** (`--host` / `--join`): browsers have no TCP sockets. Local
-  co-op with game controllers works (`--coop=2` in *Advanced*; SDL reads the Gamepad API).
+- **Co-op over the network** (`--host` / `--join`): browsers have no TCP sockets.
 - Test mode, HEADLESS, the keymap editor, the level editor (`tools/assets/edit_server.py`)
   and `make content`: they stay native. Build the content pack natively, then upload it.
 - Touch controls.
@@ -89,6 +95,13 @@ with the original's "Data.dat has been corrupted". The workflow runs both.
 ## Deploying
 
 `.github/workflows/web.yml` builds on every push and pull request and deploys `web/dist`
-to GitHub Pages from the default branch (or a manual *Run workflow*). One-time setup of
-the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-The site is `https://<owner>.github.io/<repo>/`.
+to GitHub Pages from the **`browser`** branch (the default branch follows the upstream
+repository). One-time setup of the repository:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. **Settings → Environments → github-pages → Deployment branches and tags**: add `browser`
+   (the environment GitHub creates allows the default branch only).
+
+The site is `https://<owner>.github.io/<repo>/`. On this branch the native `Build` workflow
+(the Linux / Windows bundles and the rolling `latest` release) runs only for a `v*` tag or a
+manual *Run workflow*.

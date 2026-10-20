@@ -97,6 +97,7 @@ try {
   const tail = (await page.textContent('#ended-log')) + '\n' + dialogs.join('\n');
   check(/corrupted/i.test(tail), 'the game ends with "Data.dat has been corrupted"');
   check(logs.some((l) => /V2_ONLY: loaded \d+ bytes from exe_static\.bin/.test(l)), 'the static image is read from the working directory');
+  check(logs.some((l) => /--coop: 2 players/.test(l)), 'Play starts 2-player co-op by default (--coop=2)');
   check(!logs.some((l) => /PAGEERROR|RuntimeError|Aborted/.test(l)), 'no page error or abort');
 } catch (e) {
   check(false, 'exception: ' + e.message);

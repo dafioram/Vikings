@@ -89,6 +89,16 @@
   </details>
 
   <div class="play-row">
+    <div class="players">
+      <label for="in-players">Players</label>
+      <select id="in-players">
+        <option value="1">1</option>
+        <option value="2" selected>2 — co-op</option>
+        <option value="3">3 — co-op</option>
+      </select>
+    </div>
+    <p class="hint">Co-op: one game controller per player (press a button on each after Play); the keyboard plays
+      with the first one. Player 2 takes a viking even without a controller — play alone with 1.</p>
     <button class="btn primary big" id="play" disabled>Loading…</button>
     <p class="hint keys">F1 options · F11 fullscreen · keys as in the DOS game (rebindable in <code>vikings_keymap.cfg</code>)</p>
   </div>

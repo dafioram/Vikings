@@ -92,6 +92,10 @@ details.card > summary h2 { display: inline-flex; }
                background: var(--bg); color: var(--fg); }
 
 .play-row { text-align: center; margin: 24px 0 8px; }
+.players { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.players select { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
+                  background: var(--card); color: var(--fg); }
+.play-row .hint { max-width: 460px; margin: 6px auto 14px; }
 .keys { margin-top: 10px; }
 footer { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 28px; }
 

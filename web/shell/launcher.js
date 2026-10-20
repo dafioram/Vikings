@@ -267,7 +267,11 @@
       guarded(async () => { for (const n of FS.readdir(GAME)) if (n !== '.' && n !== '..') rmTree(GAME + '/' + n); });
     });
 
-    try { $('in-args').value = localStorage.getItem('vikings.args') || ''; } catch (e) { /* storage blocked */ }
+    try {
+      $('in-args').value = localStorage.getItem('vikings.args') || '';
+      const pl = localStorage.getItem('vikings.players');
+      if (pl === '1' || pl === '2' || pl === '3') $('in-players').value = pl;
+    } catch (e) { /* storage blocked */ }
     $('play').addEventListener('click', start);
 
     // the in-game toolbar: shown while the pointer moves
@@ -298,14 +302,17 @@
     for (const n of STATIC) FS.writeFile(GAME + '/' + n, FS.readFile('/static/' + n));
     if (!exists(GAME + '/vikings_keymap.cfg')) FS.writeFile(GAME + '/vikings_keymap.cfg', FS.readFile('/static/vikings_keymap.cfg'));
     FS.chdir(GAME);
-    const argStr = $('in-args').value.trim();
-    try { localStorage.setItem('vikings.args', argStr); } catch (e) { /* storage blocked */ }
+    const argStr = $('in-args').value.trim(), players = $('in-players').value;
+    try { localStorage.setItem('vikings.args', argStr); localStorage.setItem('vikings.players', players); } catch (e) { /* storage blocked */ }
+    // the browser build plays co-op by default (2 players); a --coop= of the arguments wins
+    const args = parseArgs(argStr);
+    if (!args.some((a) => a.startsWith('--coop='))) args.unshift('--coop=' + players);
     // the canvas must be laid out before SDL creates its window: SDL takes the CSS size as the window's
     $('launcher').hidden = true;
     $('game').hidden = false;
     $('canvas').focus();
     setInterval(sync, 5000);   // the options and key bindings the game writes
-    Module.callMain(parseArgs(argStr));   // inside the click: the audio context may start
+    Module.callMain(args);   // inside the click: the audio context may start
   }
 
   function gameEnded(what) {
