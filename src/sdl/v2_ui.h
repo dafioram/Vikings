@@ -9,6 +9,8 @@
 
 // the AUDIO BUF default: 512 frames natively; 1024 in the browser build, where the mixer runs on
 // the page's main thread beside the presenter (SDL's Web Audio callback) and a late frame costs a gap
+extern bool g_v2_save_states;   // v2_ui.cpp: --save-states — the save slots (F2 / F3, the F1 menu) without --debug
+
 #ifdef __EMSCRIPTEN__
 #define V2_AUDIO_BUFFER_DEFAULT 1024
 #else
