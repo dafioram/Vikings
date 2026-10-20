@@ -57,7 +57,7 @@ void v2_options_ensure_loaded() {
             else if (!strcmp(key, "snes_sound")) { if (val != 0) v2_options.sound_mode = 1; }   // the pre-UX11 key
             else if (!strcmp(key, "sound")) v2_options.sound_mode = (val >= 0 && val <= 3) ? val : 0;
             else if (!strcmp(key, "wide")) v2_options.wide = (val >= 0 && val <= 2) ? val : 0;
-            else if (!strcmp(key, "audio_buffer")) v2_options.audio_buffer = (val == 256 || val == 512 || val == 1024) ? val : 512;
+            else if (!strcmp(key, "audio_buffer")) v2_options.audio_buffer = (val == 256 || val == 512 || val == 1024) ? val : V2_AUDIO_BUFFER_DEFAULT;
             else if (!strcmp(key, "pacing")) v2_options.pacing = (val >= 0 && val <= 1) ? val : 0;
             else if (!strcmp(key, "stats")) v2_options.stats = val != 0;
             else if (!strcmp(key, "music_volume")) v2_options.music_volume = (val >= 0 && val <= 100) ? val : 100;

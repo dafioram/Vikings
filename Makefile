@@ -56,7 +56,10 @@ PLATFORM_DEFINES := -pthread
 WEB_EMBED  := --embed-file ds_static.bin@/static/ds_static.bin \
               --embed-file exe_static.bin@/static/exe_static.bin \
               --embed-file vikings_keymap.cfg@/static/vikings_keymap.cfg
-PLATFORM_LDFLAGS := -pthread -sPTHREAD_POOL_SIZE=12 \
+# -O1 at the link (after $(DBG)'s -O2: the last one wins): Binaryen's -O2 inlines every function
+# called once, the executors' pieces into their routers, into one function of 37 MB that no browser
+# compiles (the limit is 7 654 321 bytes, web/test/wasm_limits.py); the units are -O2 already
+PLATFORM_LDFLAGS := -O1 -pthread -sPTHREAD_POOL_SIZE=12 \
               -sINITIAL_MEMORY=268435456 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=2147483648 \
               -sSTACK_SIZE=8388608 -sDEFAULT_PTHREAD_STACK_SIZE=8388608 \
               -sINVOKE_RUN=0 -sEXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1 \

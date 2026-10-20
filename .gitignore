@@ -36,3 +36,4 @@ roms/
 
 # the browser build's output (make WEB=1: the module + the copied web/shell)
 /web/dist/
+/node_modules/

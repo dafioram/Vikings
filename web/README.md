@@ -61,6 +61,23 @@ stored settings or everything.
   the runtime; the page shows the last console lines and goes back to the launcher on a
   reload.
 
+- **The link** is `-O1` (the units are compiled `-O2`): Binaryen's `-O2` inlines every function
+  called once, which folds the generated executors into one 37 MB function, and browsers
+  refuse any function body over 7 654 321 bytes. `web/test/wasm_limits.py` checks the module.
+
+## Tests
+
+```sh
+python3 web/test/wasm_limits.py web/dist/vikings.wasm     # every function within the browsers' limit
+python3 web/serve.py --port 8765 &
+node web/test/smoke.cjs http://localhost:8765/            # needs playwright (npm install --no-save playwright)
+```
+
+The smoke test drives the page in headless Chromium without game data: the isolation,
+uploads kept across a reload, the md5 warning, a content pack from a .zip, the removals,
+and Play with an archive of zeros, which boots the game to its archive check and ends it
+with the original's "Data.dat has been corrupted". The workflow runs both.
+
 ## Not in the browser build
 
 - **Co-op over the network** (`--host` / `--join`): browsers have no TCP sockets. Local

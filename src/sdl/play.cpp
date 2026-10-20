@@ -146,7 +146,7 @@ void sound_init()
     // default since 2026-09-11 (11.6 ms at 44.1 kHz; 1024 = 23 ms was the cherry-pick 3f2114a
     // default, "was 64, larger reduces audio glitches"); the STATS overlay counts the underruns
     v2_options_ensure_loaded();
-    { const int b = v2_options.audio_buffer.load(); spec.samples = (Uint16)((b == 256 || b == 512 || b == 1024) ? b : 512); }
+    { const int b = v2_options.audio_buffer.load(); spec.samples = (Uint16)((b == 256 || b == 512 || b == 1024) ? b : V2_AUDIO_BUFFER_DEFAULT); }
 
     spec.callback = my_audio_callback;
     spec.userdata = nullptr;

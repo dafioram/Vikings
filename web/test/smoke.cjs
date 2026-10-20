@@ -87,8 +87,9 @@ try {
   check(/3 files/.test(await status('#ex-content [data-status]')), 'the content pack survives a reload');
   await page.click('#ex-content [data-rm]');
   await page.click('#ex-mt32 [data-rm]');
-  await page.waitForFunction(() => /Not stored/.test(document.querySelector('#ex-content [data-status]').textContent), null, { timeout: 10000 });
-  check(/Not stored/.test(await status('#ex-mt32 [data-status]')), 'the extras are removed');
+  const gone = await page.waitForFunction(() => ['#ex-content', '#ex-mt32'].every((id) =>
+    /Not stored/.test(document.querySelector(id + ' [data-status]').textContent)), null, { timeout: 10000 }).then(() => true, () => false);
+  check(gone, 'the extras are removed');
 
   // Play: the game boots to its archive check and ends with the original's message
   await page.click('#play');

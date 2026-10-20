@@ -54,6 +54,20 @@ jobs:
           make WEB=1 -j$(nproc) 2>&1 | tee build.log || { grep -n -m20 -E "(^| )error:|Error [0-9]+" build.log | sed "s/^/::error::/"; exit 1; }
           ls -l web/dist
 
+      # a module with a function body over 7 654 321 bytes compiles in no browser (Makefile: the -O1 link)
+      - name: Browser limits of the module
+        run: python3 web/test/wasm_limits.py web/dist/vikings.wasm
+
+      # the page in headless Chromium without game data: the uploads kept in IndexedDB, the md5
+      # warning, the content pack, and Play booting the game to its archive check
+      - name: Smoke test (headless Chromium)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 web/serve.py --port 8765 &
+          sleep 1
+          node web/test/smoke.cjs http://localhost:8765/
+
       - name: Upload the site
         uses: actions/upload-pages-artifact@v3
         with:

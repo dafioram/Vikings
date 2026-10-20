@@ -13,7 +13,7 @@
 
   const $ = (id) => document.getElementById(id);
   let FS = null;
-  let running = false, ended = false;
+  let running = false, ended = false, firstRefresh = true;
   let dataMd5 = null;   // [size, mtime, md5] of the stored archive (the hash is computed once per file)
   const logTail = [];
 
@@ -199,14 +199,18 @@
     } else setStatus(st, 'Not stored', '');
     $('rm-data').hidden = !dp;
 
+    let anyExtra = false;
     for (const id in EXTRAS) {
       const sec = $(id), files = walk(GAME + '/' + EXTRAS[id]);
+      anyExtra = anyExtra || files.length > 0;
       const total = files.reduce((a, f) => a + f.size, 0);
       setStatus(sec.querySelector('[data-status]'),
         files.length ? 'Stored · ' + files.length + ' file' + (files.length === 1 ? '' : 's') + ' · ' + fmtSize(total) : 'Not stored',
         files.length ? 'ok' : '');
       sec.querySelector('[data-rm]').hidden = !files.length;
     }
+    if (firstRefresh && anyExtra) $('sec-extra').open = true;   // what is stored is in view at the start
+    firstRefresh = false;
     const cfgs = CFG.filter((n) => exists(GAME + '/' + n));
     $('cfg-list').textContent = cfgs.length ? cfgs.join(', ') : 'none';
 
