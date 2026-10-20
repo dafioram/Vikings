@@ -25,7 +25,7 @@
 #include "render_v2.h"   // V2_EXE_STATIC_SIZE
 #include <csignal>
 #ifndef _WIN32
-#include <unistd.h>   // _exit
+#include <unistd.h>   // _exit (glibc pulls it in through other headers, other libcs do not)
 #endif
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>   // the browser build (WEB=1): the presenter runs from the animation frame

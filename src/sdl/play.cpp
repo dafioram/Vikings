@@ -146,26 +146,31 @@ void sound_init()
     // default since 2026-09-11 (11.6 ms at 44.1 kHz; 1024 = 23 ms was the cherry-pick 3f2114a
     // default, "was 64, larger reduces audio glitches"); the STATS overlay counts the underruns
     v2_options_ensure_loaded();
-    { const int b = v2_options.audio_buffer.load(); spec.samples = (Uint16)((b == 256 || b == 512 || b == 1024) ? b : V2_AUDIO_BUFFER_DEFAULT); }
+    { const int b = v2_options.audio_buffer.load(); spec.samples = (Uint16)((b == 256 || b == 512 || b == 1024) ? b : 512); }
 
     spec.callback = my_audio_callback;
     spec.userdata = nullptr;
 
-#ifdef __EMSCRIPTEN__
-    // the browser build: the Web Audio device is float32 at the context's own rate, and with an
-    // obtained spec SDL would hand that over as is — the native mix is s16 stereo: no change
-    // allowed, SDL converts (and resamples) behind the callback, which sees the requested spec
-    if (SDL_OpenAudio(&spec, nullptr) < 0) {
-        fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
-        return;
-    }
-    obtained = spec;
-#else
     if (SDL_OpenAudio(&spec, &obtained) < 0) {
         fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
         return;
     }
-#endif
+    // SDL_OpenAudio with an obtained spec takes any device format (SDL_AUDIO_ALLOW_ANY_CHANGE),
+    // and the native mix writes s16 stereo only: a device that comes back float32 or with
+    // another channel count (a browser's Web Audio is always float32) is reopened without an
+    // obtained spec — SDL then converts behind the callback, which sees the requested format.
+    // The device's own rate is still taken when only the rate differs (no resampling).
+    if (obtained.format != AUDIO_S16SYS || obtained.channels != 2) {
+        fprintf(stderr, "SOUND-INIT: device format 0x%X x%d is not s16 stereo, SDL converts\n",
+                obtained.format, obtained.channels);
+        SDL_CloseAudio();
+        spec.freq = obtained.freq;
+        if (SDL_OpenAudio(&spec, nullptr) < 0) {
+            fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
+            return;
+        }
+        obtained = spec;
+    }
 
     printf("SOUND-INIT: requested freq=%d format=0x%X channels=%d samples=%d\n",
            spec.freq, spec.format, spec.channels, spec.samples);
