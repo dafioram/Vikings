@@ -376,8 +376,8 @@ extern "C" int v2_gs_evac_check(const uint8_t* ds) {
     if (!v2_gs_evac_on(ds)) return 0;
     v2_gs_evac_check_calls++;
     int diffs = 0;
-#ifdef _WIN32
-#define V2_GS_TID() 0L                             // the diff line's thread id: Linux-only (no gettid on mingw)
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
+#define V2_GS_TID() 0L                             // the diff line's thread id: Linux-only (no gettid on mingw nor in the browser build)
 #else
 #define V2_GS_TID() ((long)syscall(SYS_gettid))
 #endif
