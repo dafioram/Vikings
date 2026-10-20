@@ -77,6 +77,9 @@ static inline void v2_present_sleep(void) {
     // Same V2_NOVSYNC gate as the tick pacing (a CPU-speed replay needs the
     // presenter spinning too). UX stage 9: with a vsync presenter the present
     // call itself paces the loop at the display refresh — no extra sleep.
+#ifdef __EMSCRIPTEN__
+    return;   // the browser build: the animation frame paces the presenter (the main thread never sleeps)
+#endif
     static int novsync = -1;
     if (novsync < 0) { const char* e = getenv("V2_NOVSYNC"); novsync = (e && *e == '1') ? 1 : 0; }
     if (novsync) SDL_Delay(1);   // fast pacing, not a spin (shutdown races, contention)

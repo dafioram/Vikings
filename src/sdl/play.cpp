@@ -151,10 +151,21 @@ void sound_init()
     spec.callback = my_audio_callback;
     spec.userdata = nullptr;
 
+#ifdef __EMSCRIPTEN__
+    // the browser build: the Web Audio device is float32 at the context's own rate, and with an
+    // obtained spec SDL would hand that over as is — the native mix is s16 stereo: no change
+    // allowed, SDL converts (and resamples) behind the callback, which sees the requested spec
+    if (SDL_OpenAudio(&spec, nullptr) < 0) {
+        fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
+        return;
+    }
+    obtained = spec;
+#else
     if (SDL_OpenAudio(&spec, &obtained) < 0) {
         fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
         return;
     }
+#endif
 
     printf("SOUND-INIT: requested freq=%d format=0x%X channels=%d samples=%d\n",
            spec.freq, spec.format, spec.channels, spec.samples);

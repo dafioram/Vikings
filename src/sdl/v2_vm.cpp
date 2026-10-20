@@ -24,8 +24,10 @@
 #include <chrono>
 #ifndef _WIN32
 #include <unistd.h>
+#ifndef __EMSCRIPTEN__
 #include <execinfo.h>  // stage-4 evac trap backtrace   // _exit, close, syscall — some libcs pull these in
                       // transitively, Ubuntu's does not.
+#endif
 #endif
 #include <cerrno>
 #include <dirent.h>    // the archive's case-insensitive lookup (v2_open_data_dat; mingw-w64 has it too)

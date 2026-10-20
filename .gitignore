@@ -33,3 +33,6 @@ fonts/unifont.otf
 
 # UX stage 11: the SC-55 option reads the module ROMs from here — Roland's images, never committed
 roms/
+
+# the browser build's output (make WEB=1: the module + the copied web/shell)
+/web/dist/

@@ -1,0 +1,75 @@
+name: Web
+
+# The browser build (web/README.md): Emscripten → web/dist (the page, vikings.js, vikings.wasm),
+# deployed to GitHub Pages from the default branch. Every other push builds it only, so a
+# branch shows whether the browser build still compiles. One-time setup of the repository:
+# Settings → Pages → Build and deployment → Source: "GitHub Actions".
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Emscripten build
+    runs-on: ubuntu-latest
+    env:
+      EMSDK_VERSION: 4.0.15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # the SDK and its cache (the SDL2 port, the system libraries built for -pthread)
+      - name: Cache emsdk
+        id: emsdk_cache
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}-sdl2-pthread-v1
+
+      - name: Install emsdk (cache miss only)
+        if: steps.emsdk_cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install "$EMSDK_VERSION"
+          ~/emsdk/emsdk activate "$EMSDK_VERSION"
+
+      - name: Build (make WEB=1)
+        # the transpiled executors are large units: clang's parser needs a deep stack (build.yml)
+        run: |
+          ulimit -s unlimited
+          ~/emsdk/emsdk activate "$EMSDK_VERSION" > /dev/null
+          source ~/emsdk/emsdk_env.sh > /dev/null
+          em++ --version | head -1
+          set -o pipefail
+          make WEB=1 -j$(nproc) 2>&1 | tee build.log || { grep -n -m20 -E "(^| )error:|Error [0-9]+" build.log | sed "s/^/::error::/"; exit 1; }
+          ls -l web/dist
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name != 'pull_request' && (github.ref_name == github.event.repository.default_branch || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -444,7 +444,7 @@ extern "C" int v2_gs_evac_check(const uint8_t* ds) {
 
 // stage-4 diag: first desyncs seen AT READ TIME, with backtrace (glibc; the
 // message alone on mingw, which has no execinfo).
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)   // (and the browser build's libc)
 #include <execinfo.h>
 #endif
 extern "C" void v2_gs_evac_read_desync(const char* fld, uint32_t off, uint16_t mem, uint16_t img) {
@@ -453,7 +453,7 @@ extern "C" void v2_gs_evac_read_desync(const char* fld, uint32_t off, uint16_t m
     n++;
     fprintf(stderr, "V2-EVAC-READ-DESYNC[%d]: %s @%04X member=%04X image=%04X\n",
             n, fld, off, mem, img);
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
     void* bt[8]; int bn = backtrace(bt, 8);
     backtrace_symbols_fd(bt, bn, 2);
 #endif
