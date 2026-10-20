@@ -2,8 +2,10 @@
 //   python3 web/serve.py & node web/test/smoke.cjs [http://localhost:8000/]
 // (playwright from the repo's node_modules — npm install --no-save playwright — or NODE_PATH)
 // The launcher: the isolation, an upload kept across a reload (IndexedDB), the md5 warning,
-// a content pack from a .zip (only .compiled/ and exe_static.bin kept), the removals. The
-// module: Play with an archive of zeros boots the game to its archive check, which ends it
+// a content pack from a .zip (only .compiled/ and exe_static.bin kept), the removals, the
+// backup (export, delete all, import; only a backup's files come back), the save-slot list, the
+// build label and the controller toast. The module: Play with an archive of zeros boots the game
+// to its archive check, which ends it
 // the way the original did ("Data.dat has been corrupted") — the startup on the browser's
 // main thread, the working directory, the fatal exit and the page's end of game.
 'use strict';
@@ -58,6 +60,9 @@ try {
   await page.goto(url);
   await ready();
   check(await page.evaluate(() => window.crossOriginIsolated), 'the page is cross-origin isolated');
+  const version = await (await page.request.get(url + 'version.json')).json();
+  check(version.wasm > 0 && (await page.textContent('#build-label')).includes(version.build), 'the footer shows the served build (' + version.build + ')');
+  check(await page.isHidden('#load-bar'), 'the load progress is cleared once the game is loaded');
   check(await page.isDisabled('#play'), 'Play is disabled without DATA.DAT');
 
   // an archive of zeros: stored, the md5 warning
@@ -91,6 +96,36 @@ try {
     /Not stored/.test(document.querySelector(id + ' [data-status]').textContent)), null, { timeout: 10000 }).then(() => true, () => false);
   check(gone, 'the extras are removed');
 
+  // the backup: a save slot (imported), an export with the game files, everything deleted, the import
+  const seed = makeZip([
+    ['v2_save_3.state', Buffer.alloc(4096, 3), true],
+    ['v2_options.cfg', Buffer.from('stats=0\n'), false],
+    ['content/raw/manifest.json', Buffer.from('{}'), false],   // not a backup's: skipped
+    ['../evil.txt', Buffer.from('x'), false],                  // not a backup's: skipped
+  ]);
+  await page.setInputFiles('#bk-import', { name: 'seed.zip', mimeType: 'application/zip', buffer: seed });
+  await page.waitForFunction(() => /Slot 3/.test(document.querySelector('#slot-list').textContent), null, { timeout: 10000 });
+  check(true, 'an imported save state is listed (slot 3)');
+  check(await page.evaluate(() => !Module.FS.analyzePath('/game/content/raw').exists && !Module.FS.analyzePath('/evil.txt').exists),
+        'the import writes a backup\'s files only');
+  await page.click('#sec-saves summary');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#bk-export')]);
+  const backup = require('node:fs').readFileSync(await dl.path());
+  const names = backup.toString('latin1');
+  check(/DATA\.DAT/.test(names) && /v2_save_3\.state/.test(names) && /v2_options\.cfg/.test(names) && !/exe_static\.bin|ds_static/.test(names),
+        'the export holds DATA.DAT, the slot and the settings (not the build\'s images)');
+  await page.click('#sec-adv summary');
+  await page.click('#rm-all');   // the confirm is accepted by the dialog handler
+  await page.waitForFunction(() => /Not stored/.test(document.querySelector('#data-status').textContent), null, { timeout: 10000 });
+  await page.setInputFiles('#bk-import', { name: dl.suggestedFilename(), mimeType: 'application/zip', buffer: backup });
+  await page.waitForFunction(() => /Stored/.test(document.querySelector('#data-status').textContent), null, { timeout: 10000 });
+  check(/checksum mismatch/.test(await status('#data-status')) && /Slot 3/.test(await page.textContent('#slot-list')),
+        'the backup brings DATA.DAT and the slot back');
+
+  // the controllers: the game's assignment line becomes a toast
+  await page.evaluate(() => Module.printErr("v2_coop: controller 'Test Pad' -> player 2"));
+  check(/Test Pad → Player 2/.test(await page.textContent('#pad-toast')), 'a controller assignment shows as a toast');
+
   // Play: the game boots to its archive check and ends with the original's message
   await page.click('#play');
   await page.waitForSelector('#ended:not([hidden])', { timeout: 120000 });
@@ -98,6 +133,7 @@ try {
   check(/corrupted/i.test(tail), 'the game ends with "Data.dat has been corrupted"');
   check(logs.some((l) => /V2_ONLY: loaded \d+ bytes from exe_static\.bin/.test(l)), 'the static image is read from the working directory');
   check(logs.some((l) => /--coop: 2 players/.test(l)), 'Play starts 2-player co-op by default (--coop=2)');
+  check(logs.some((l) => /--save-states: F2 saves/.test(l)), 'Play enables the save slots (--save-states)');
   check(!logs.some((l) => /PAGEERROR|RuntimeError|Aborted/.test(l)), 'no page error or abort');
 } catch (e) {
   check(false, 'exception: ' + e.message);

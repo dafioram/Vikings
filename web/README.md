@@ -44,6 +44,20 @@ the page only after one of its buttons is pressed. Player 2 owns a viking from t
 start with or without a controller (the switch skips it), so a solo game is Players 1. A
 `--coop=` among the arguments wins.
 
+**Save states**: the page starts the game with `--save-states` — F2 saves the whole game
+state to the slot chosen in the F1 menu (SAVE SLOT / LOAD SLOT, 1–9), F3 loads it; the files
+(`v2_save_<n>.state`) are in `/game` like the settings, and *Saves & backup* lists them with
+their dates. `--debug`'s LEVEL jump, REWIND and cheat keys are not part of it.
+
+**Backup**: *Saves & backup → Export* writes everything stored as one .zip (the settings,
+the key bindings, the save slots and, with the box checked, DATA.DAT and the extra content);
+*Import* restores one — only the files a backup carries, under their own paths, added to
+what is stored (a file of the same name is replaced). The build's own images are never in it.
+
+**Controllers**: the game logs which controller became which player
+(`v2_coop: controller '…' -> player N`); the page shows each change as a toast, and while a
+co-op game has fewer pads than players a hint asks for a button press on the next one.
+
 The *Advanced* section passes command-line arguments (`--debug` …) and resets the
 stored settings or everything.
 
@@ -64,6 +78,18 @@ stored settings or everything.
   animation frame like VSYNC.
 - **Audio** is SDL's Web Audio device; the mixer gets the s16 stereo spec it asks for and SDL
   converts. Browsers start audio only after a user gesture: the Play click is one.
+- **The F1 menu** leaves out the network lobby (CO-OP, DELAY, HOST, JOIN): a page has no sockets.
+- **Loading.** The launcher fetches `vikings.wasm` itself (`Module.instantiateWasm`) to show the
+  download against the module's size from `version.json`, then "Compiling…" until the runtime
+  is up; the module compiles while it streams.
+- **Deploys and the cache.** GitHub Pages lets a browser keep any file for 10 minutes, so a
+  page, a launcher and a module of two deploys could meet. The Makefile writes the build (the
+  commit) into the page (`<meta name="build">`, `?v=` on launcher.js and style.css), the
+  launcher and `version.json`; the launcher reads `version.json` past the cache, reloads the
+  page once when it names another build, and loads `vikings.js` / `vikings.wasm` under
+  `?v=<build>` — a cached copy of another deploy's is never taken. A module that still fails to
+  link to its loader reloads once more, then says a deploy is in progress. The footer shows the
+  build and its date.
 - **Exit.** The game's quit, a fatal DOS exit ("Cannot find 'data.dat' …") and a crash end
   the runtime; the page shows the last console lines and goes back to the launcher on a
   reload.
@@ -82,7 +108,9 @@ node web/test/smoke.cjs http://localhost:8765/            # needs playwright (np
 
 The smoke test drives the page in headless Chromium without game data: the isolation,
 uploads kept across a reload, the md5 warning, a content pack from a .zip, the removals,
-and Play with an archive of zeros, which boots the game to its archive check and ends it
+the build label and the cleared load progress, a backup's import (a save slot listed, foreign
+paths skipped), export, deletion and re-import, the controller toast, and Play (with
+`--coop=2` and `--save-states`) with an archive of zeros, which boots the game to its archive check and ends it
 with the original's "Data.dat has been corrupted". The workflow runs both.
 
 ## Not in the browser build

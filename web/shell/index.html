@@ -3,11 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- the deploy's build (the Makefile writes it into the page, launcher.js and version.json): a page,
+     a launcher or a module of another deploy left in the browser's cache is detected and reloaded -->
+<meta name="build" content="__BUILD__">
 <title>Lost Vikings — Browser</title>
 <!-- SharedArrayBuffer (the game's threads) needs a cross-origin isolated page; GitHub Pages
      sends no COOP/COEP headers, so this service worker adds them (one reload on the first visit) -->
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=__BUILD__">
 </head>
 <body>
 <main id="launcher">
@@ -76,6 +79,24 @@
     </div>
   </details>
 
+  <details class="card" id="sec-saves">
+    <summary><h2>Saves &amp; backup</h2></summary>
+    <p class="hint">In the game, <b>F2</b> saves the whole game state and <b>F3</b> loads it; the slot (1–9) is
+      SAVE SLOT / LOAD SLOT in the F1 menu.</p>
+    <ul class="slots" id="slot-list"></ul>
+    <div class="extra">
+      <h3>Backup</h3>
+      <p class="hint">Everything stored here as one .zip — settings, key bindings, save states, and optionally the
+        game files — to keep a copy or to move to another browser. Importing adds to what is stored and replaces
+        files of the same name.</p>
+      <label class="check"><input type="checkbox" id="bk-data" checked> Include DATA.DAT and the extra content</label>
+      <div class="actions">
+        <button class="btn" id="bk-export">Export backup</button>
+        <label class="btn">Import backup…<input type="file" id="bk-import" accept=".zip,application/zip" hidden></label>
+      </div>
+    </div>
+  </details>
+
   <details class="card" id="sec-adv">
     <summary><h2>Advanced</h2></summary>
     <label class="field">Command-line arguments
@@ -100,12 +121,16 @@
     <p class="hint">Co-op: one game controller per player (press a button on each after Play); the keyboard plays
       with the first one. Player 2 takes a viking even without a controller — play alone with 1.</p>
     <button class="btn primary big" id="play" disabled>Loading…</button>
-    <p class="hint keys">F1 options · F11 fullscreen · keys as in the DOS game (rebindable in <code>vikings_keymap.cfg</code>)</p>
+    <div class="progress" id="load-bar" hidden><div></div></div>
+    <p class="hint" id="load-status" hidden></p>
+    <p class="hint keys">F1 options · F2 / F3 save / load · F11 fullscreen · keys as in the DOS game (rebindable in
+      <code>vikings_keymap.cfg</code>)</p>
   </div>
 
   <footer>
     <a href="https://github.com/dafioram/Vikings">Source</a> ·
     Requires a browser with WebAssembly threads (current Chrome, Edge, Firefox, Safari).
+    <br><span id="build-label">Build __BUILD__</span>
   </footer>
 </main>
 
@@ -115,6 +140,11 @@
     <button class="btn small" id="tb-fs" title="Fullscreen">⛶ Fullscreen</button>
     <button class="btn small" id="tb-quit" title="Back to the launcher">✕ Quit</button>
   </div>
+  <div id="pad-hint" class="pad-hint" hidden>
+    <span id="pad-hint-text"></span>
+    <button class="btn small" id="pad-hint-close" title="Dismiss">✕</button>
+  </div>
+  <div id="pad-toast" class="toast" hidden></div>
   <div id="ended" class="overlay" hidden>
     <div class="card">
       <h2 id="ended-title">The game has ended</h2>
@@ -124,6 +154,6 @@
   </div>
 </div>
 
-<script src="launcher.js"></script>
+<script src="launcher.js?v=__BUILD__"></script>
 </body>
 </html>

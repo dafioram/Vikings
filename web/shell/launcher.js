@@ -10,10 +10,15 @@
   const STATIC = ['ds_static.bin', 'exe_static.bin'];       // the build's own images (embedded at /static), copied at every start
   const CFG = ['v2_options.cfg', 'vikings_keymap.cfg'];
   const EXTRAS = { 'ex-content': 'content', 'ex-sc55': 'roms/sc55', 'ex-mt32': 'roms/mt32' };
+  const SAVE_RE = /^v2_save_([1-9])\.state$/;            // the game's save slots (F2 / F3, --save-states)
+  const BUILD = '__BUILD__';                              // this launcher's deploy (written by the Makefile)
 
   const $ = (id) => document.getElementById(id);
   let FS = null;
   let running = false, ended = false, firstRefresh = true;
+  let padsWanted = 1, padHintDismissed = false, toastT = 0;
+  const pads = new Map();   // player -> the controller's name (the game's own assignment, from its log)
+  let liveBuild = null;     // version.json of the deploy being served: { build, date, wasm }
   let dataMd5 = null;   // [size, mtime, md5] of the stored archive (the hash is computed once per file)
   const logTail = [];
 
@@ -172,6 +177,50 @@
     return keep;
   }
 
+  // a .zip of the given files, stored (the game files hardly compress, and a backup must be quick)
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(b) {
+    let c = 0xffffffff;
+    for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  function zipBlob(files) {   // [{ path, data, mtime }]
+    const te = new TextEncoder(), parts = [], central = [];
+    let off = 0;
+    for (const f of files) {
+      const name = te.encode(f.path), crc = crc32(f.data), n = f.data.length, d = new Date(f.mtime || Date.now());
+      const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+      const date = (Math.max(d.getFullYear() - 1980, 0) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+      const lh = new DataView(new ArrayBuffer(30)), ch = new DataView(new ArrayBuffer(46));
+      for (const [v, base] of [[lh, 4], [ch, 6]]) {   // the fields both headers share, at their offsets
+        v.setUint16(base, 20, true); v.setUint16(base + 2, 0x0800, true);   // version 2.0, UTF-8 names
+        v.setUint16(base + 6, time, true); v.setUint16(base + 8, date, true);
+        v.setUint32(base + 10, crc, true); v.setUint32(base + 14, n, true); v.setUint32(base + 18, n, true);
+        v.setUint16(base + 22, name.length, true);
+      }
+      lh.setUint32(0, 0x04034b50, true);
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint32(42, off, true);
+      parts.push(lh, name, f.data); central.push(ch, name);
+      off += 30 + name.length + n;
+      if (off > 0xffffffff) throw new Error('the backup is over 4 GB');
+    }
+    const cd = central.reduce((a, p) => a + p.byteLength, 0), end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, cd, true); end.setUint32(16, off, true);
+    return new Blob([...parts, ...central, end], { type: 'application/zip' });
+  }
+
+  // what a backup carries and gives back: the game files (optional on export), the settings, the slots
+  function isGameData(p) {
+    return /^data\.dat$/i.test(p) || p === 'content/exe_static.bin' || /^content\/\.compiled\/[^/]+$/.test(p) ||
+           /^roms\/(sc55|mt32)\/[^/]+$/.test(p);
+  }
+  function isBackupFile(p) { return isGameData(p) || CFG.includes(p) || SAVE_RE.test(p); }
+
   // ------------------------------------------------------------------ the page
   function fmtSize(n) {
     return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
@@ -209,7 +258,25 @@
         files.length ? 'ok' : '');
       sec.querySelector('[data-rm]').hidden = !files.length;
     }
+    // the save slots, newest first
+    const slots = (isDir(GAME) ? FS.readdir(GAME) : []).filter((n) => SAVE_RE.test(n))
+      .map((n) => ({ n, slot: +SAVE_RE.exec(n)[1], st: FS.stat(GAME + '/' + n) }))
+      .sort((a, b) => b.st.mtime - a.st.mtime);
+    const ul = $('slot-list');
+    ul.textContent = '';
+    for (const s of slots) {
+      const li = document.createElement('li'), label = document.createElement('span'), when = document.createElement('span');
+      label.textContent = 'Slot ' + s.slot + ' ';
+      when.className = 'when'; when.textContent = new Date(s.st.mtime).toLocaleString() + ' · ' + fmtSize(s.st.size);
+      label.appendChild(when);
+      const rm = document.createElement('button');
+      rm.className = 'btn ghost small'; rm.textContent = 'Remove'; rm.dataset.slot = s.n;
+      li.append(label, rm); ul.appendChild(li);
+    }
+    if (!slots.length) { const li = document.createElement('li'); li.className = 'when'; li.textContent = 'No save states yet.'; ul.appendChild(li); }
+
     if (firstRefresh && anyExtra) $('sec-extra').open = true;   // what is stored is in view at the start
+    if (firstRefresh && slots.length) $('sec-saves').open = true;
     firstRefresh = false;
     const cfgs = CFG.filter((n) => exists(GAME + '/' + n));
     $('cfg-list').textContent = cfgs.length ? cfgs.join(', ') : 'none';
@@ -259,6 +326,31 @@
       sec.querySelector('[data-rm]').addEventListener('click', () => guarded(async () => rmTree(GAME + '/' + dir)));
     }
 
+    $('slot-list').addEventListener('click', (ev) => {
+      const n = ev.target.dataset && ev.target.dataset.slot;
+      if (n && confirm('Remove the save state in ' + n.replace(SAVE_RE, 'slot $1') + '?')) guarded(async () => FS.unlink(GAME + '/' + n));
+    });
+    $('bk-export').addEventListener('click', () => guarded(async () => {
+      const withData = $('bk-data').checked;
+      const files = walk(GAME).filter((f) => isBackupFile(f.path) && (withData || !isGameData(f.path)));
+      if (!files.length) throw new Error('Nothing to back up yet.');
+      const blob = zipBlob(files.map((f) => ({ path: f.path, data: FS.readFile(GAME + '/' + f.path), mtime: f.mtime })));
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'lost-vikings-backup-' + new Date().toISOString().slice(0, 10) + '.zip';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    }));
+    $('bk-import').addEventListener('change', (ev) => guarded(async () => {
+      const f = ev.target.files[0]; ev.target.value = '';
+      if (!f) return;
+      // only the files a backup carries, under their own paths (a stray .zip writes nothing else)
+      const got = await unzip(f, (entries) => entries.filter((e) => isBackupFile(e.path)).map((e) => Object.assign(e, { rel: e.path })));
+      if (!got.length) throw new Error('This .zip holds no files of a backup (DATA.DAT, settings, save states, extra content).');
+      if (got.some((e) => /^data\.dat$/i.test(e.rel))) { const old = dataPath(); if (old) FS.unlink(old); }
+      for (const e of got) writeFile(e.rel, e.data);
+    }));
+
     $('rm-cfg').addEventListener('click', () => guarded(async () => {
       for (const n of CFG) if (exists(GAME + '/' + n)) FS.unlink(GAME + '/' + n);
     }));
@@ -295,6 +387,72 @@
     return out;
   }
 
+  // ------------------------------------------------------------------ the controllers
+  // The game assigns the pads (v2_coop_pad_added: the first free player, the first pad beside the
+  // keyboard as player 1) and logs it; the page shows what it did, and while a co-op game still
+  // waits for pads, how many are missing — a browser shows a pad only after one of its buttons.
+  function toast(text) {
+    const el = $('pad-toast');
+    el.textContent = text; el.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3500);
+  }
+  function padHint() {
+    const el = $('pad-hint'), need = padsWanted >= 2 ? padsWanted : 0;
+    if (!running || padHintDismissed || !need || pads.size >= need) { el.hidden = true; return; }
+    $('pad-hint-text').textContent = pads.size === 0
+      ? 'Co-op: press a button on each controller to connect it — ' + need + ' needed (the first one plays player 1 with the keyboard).'
+      : 'Co-op: ' + pads.size + ' of ' + need + ' controllers connected — press a button on the next one.';
+    el.hidden = false;
+  }
+  function padLog(t) {
+    let m = /^v2_coop: controller '(.*)' -> player (\d)/.exec(t);
+    if (m) { pads.set(+m[2], m[1]); toast('🎮 ' + m[1] + ' → Player ' + m[2]); padHint(); return; }
+    m = /^v2_coop: player (\d)'s controller removed/.exec(t);
+    if (m) { pads.delete(+m[1]); toast('Player ' + m[1] + '’s controller disconnected'); padHint(); return; }
+    if (/^v2_coop: controller \d+ ignored/.test(t)) toast('Controller not used — every player already has one');
+  }
+
+  // ------------------------------------------------------------------ loading
+  function progress(frac, text) {
+    const bar = $('load-bar'), st = $('load-status');
+    bar.hidden = frac === null; if (frac !== null) bar.firstElementChild.style.width = (frac * 100).toFixed(1) + '%';
+    st.hidden = !text; st.textContent = text || '';
+  }
+  // the module, counted as it arrives (compiled while it streams): the size comes from version.json,
+  // the transfer itself may be compressed
+  async function loadWasm(url, imports) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + url);
+    const size = liveBuild && liveBuild.wasm;
+    let src = resp;
+    if (resp.body && size > 0) {
+      const reader = resp.body.getReader();
+      let got = 0;
+      src = new Response(new ReadableStream({
+        async pull(ctl) {
+          const r = await reader.read();
+          if (r.done) { progress(1, 'Compiling…'); ctl.close(); return; }
+          got += r.value.length;
+          progress(Math.min(got / size, 1), 'Downloading the game ' + fmtSize(got) + ' of ' + fmtSize(size));
+          ctl.enqueue(r.value);
+        },
+      }), { headers: { 'Content-Type': 'application/wasm' } });
+    } else progress(null, 'Downloading the game…');
+    try { return await WebAssembly.instantiateStreaming(src, imports); }
+    catch (e) {
+      if (e instanceof WebAssembly.LinkError || e instanceof WebAssembly.CompileError) throw e;
+      progress(null, 'Compiling…');   // a browser without streaming instantiation
+      return WebAssembly.instantiate(await (await fetch(url)).arrayBuffer(), imports);
+    }
+  }
+  // a module of another deploy than its loader (a cache that kept one of them): one reload, then the error
+  function reloadOnce(why) {
+    let tried = false;
+    try { tried = sessionStorage.getItem('vikings.reloaded') === why; sessionStorage.setItem('vikings.reloaded', why); } catch (e) { tried = true; }
+    if (!tried) location.reload();
+    return !tried;
+  }
+
   function start() {
     if (running || !dataPath()) return;
     running = true;
@@ -307,12 +465,16 @@
     // the browser build plays co-op by default (2 players); a --coop= of the arguments wins
     const args = parseArgs(argStr);
     if (!args.some((a) => a.startsWith('--coop='))) args.unshift('--coop=' + players);
+    if (!args.includes('--save-states')) args.push('--save-states');   // F2 / F3 without --debug's cheats
+    const coop = args.find((a) => a.startsWith('--coop='));
+    padsWanted = coop ? parseInt(coop.slice(7), 10) || 1 : 1;
     // the canvas must be laid out before SDL creates its window: SDL takes the CSS size as the window's
     $('launcher').hidden = true;
     $('game').hidden = false;
     $('canvas').focus();
     setInterval(sync, 5000);   // the options and key bindings the game writes
     Module.callMain(args);   // inside the click: the audio context may start
+    padHint();
   }
 
   function gameEnded(what) {
@@ -320,7 +482,7 @@
     ended = true; running = false;
     sync();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    $('canvas').hidden = true; $('toolbar').hidden = true;
+    $('canvas').hidden = true; $('toolbar').hidden = true; $('pad-hint').hidden = true; $('pad-toast').hidden = true;
     $('ended-title').textContent = what;
     $('ended-log').textContent = logTail.slice(-12).join('\n');
     $('ended').hidden = false;
@@ -330,8 +492,24 @@
   window.Module = {
     canvas: $('canvas'),
     print: (t) => { console.log(t); keep(t); },
-    printErr: (t) => { console.warn(t); keep(t); },
+    printErr: (t) => { console.warn(t); keep(t); padLog(t); },
+    // the module and the files it locates, under the served deploy's build: a cached copy of
+    // another deploy's is never taken for this one's
+    locateFile: (path) => path + '?v=' + encodeURIComponent((liveBuild && liveBuild.build) || BUILD),
+    instantiateWasm(imports, done) {
+      loadWasm(Module.locateFile('vikings.wasm'), imports).then((r) => done(r.instance, r.module), (e) => {
+        console.error(e);
+        if (e instanceof WebAssembly.LinkError && reloadOnce('link:' + BUILD)) return;
+        progress(null, '');
+        const b = $('env-error'); b.hidden = false;
+        b.textContent = 'The game could not be loaded: ' + (e && e.message ? e.message : e) +
+          (e instanceof WebAssembly.LinkError ? ' — a new version is being deployed; reload in a minute.' : '');
+        $('play').textContent = 'Unavailable';
+      });
+      return {};
+    },
     onRuntimeInitialized() {
+      progress(null, '');
       FS = Module.FS;
       FS.mkdir(GAME);
       FS.mount(FS.filesystems.IDBFS, {}, GAME);
@@ -347,16 +525,23 @@
     onAbort: (what) => gameEnded('The game stopped with an error'),
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     wire();
+    $('pad-hint-close').addEventListener('click', () => { padHintDismissed = true; padHint(); $('canvas').focus(); });
     const problem = envProblem();
     if (problem) {
       const b = $('env-error'); b.hidden = false; b.textContent = problem;
       $('play').textContent = 'Unavailable';
       return;
     }
+    // the deploy being served (never from a cache): a page or launcher of an older one reloads once
+    try { const r = await fetch('version.json', { cache: 'no-store' }); if (r.ok) liveBuild = await r.json(); } catch (e) { /* a local copy without it */ }
+    const pageBuild = (document.querySelector('meta[name=build]') || {}).content;
+    if (liveBuild && liveBuild.build && (liveBuild.build !== BUILD || pageBuild !== BUILD) && reloadOnce('page:' + liveBuild.build)) return;
+    $('build-label').textContent = 'Build ' + ((liveBuild && liveBuild.build) || BUILD) + (liveBuild && liveBuild.date ? ' · ' + liveBuild.date : '');
+    progress(null, 'Downloading the game…');
     const s = document.createElement('script');
-    s.src = 'vikings.js';
+    s.src = 'vikings.js?v=' + encodeURIComponent((liveBuild && liveBuild.build) || BUILD);
     s.onerror = () => { const b = $('env-error'); b.hidden = false; b.textContent = 'vikings.js could not be loaded.'; };
     document.body.appendChild(s);
   });

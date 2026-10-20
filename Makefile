@@ -488,12 +488,21 @@ $(KEYMAP_EDITOR_OBJDIR)/%.o: %.cpp
 -include $(KEYMAP_EDITOR_OBJS:.o=.d)
 
 ifeq ($(WEB),1)
-# the browser build: the page (web/shell) beside the module, the embedded files relink it
+# the browser build: the page (web/shell) beside the module, the embedded files relink it.
+# The deploy's build (the commit, -dirty with local changes) is written into the page and the
+# launcher (__BUILD__) and into version.json with the module's size: the launcher compares them
+# and loads vikings.js / vikings.wasm under ?v=<build> (web/README.md, the cache of a deploy)
+WEB_BUILD := $(shell git rev-parse --short=8 HEAD 2>/dev/null || echo dev)$(shell git diff --quiet HEAD -- 2>/dev/null || echo -dirty)
+WEB_DATE  := $(shell git log -1 --format=%cs 2>/dev/null)
 WEB_SHELL := $(patsubst web/shell/%,web/dist/%,$(wildcard web/shell/*))
-all: $(WEB_SHELL)
-web/dist/%: web/shell/%
+all: $(WEB_SHELL) web/dist/version.json
+.PHONY: web-force
+web-force: ;
+web/dist/%: web/shell/% web-force
 	@mkdir -p $(dir $@)
-	cp $< $@
+	sed 's/__BUILD__/$(WEB_BUILD)/g' $< > $@
+web/dist/version.json: $(EXE_NAME) web-force
+	printf '{"build":"%s","date":"%s","wasm":%s}\n' '$(WEB_BUILD)' '$(WEB_DATE)' "$$(wc -c < web/dist/vikings.wasm | tr -d ' ')" > $@
 $(EXE_NAME): ds_static.bin exe_static.bin vikings_keymap.cfg
 endif
 
