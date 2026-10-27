@@ -27,6 +27,9 @@
 #ifndef _WIN32
 #include <unistd.h>   // _exit (glibc pulls it in through other headers, other libcs do not)
 #endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>   // the browser build (WEB=1): the presenter runs from the animation frame
+#endif
 extern int v2_dbg_pre_vm_iter;   // game-frame counter (v2_vm.cpp), C++ linkage — declared once at file scope (clang rejects block externs inside extern "C" functions)
 
 extern bool need_quit;
@@ -158,6 +161,30 @@ void v2_only_clean_exit(const char* why) {   // C++ linkage: the callers declare
     v2_midi_shutdown();   // UX stage 11: V2_MIDI_DUMP (_exit skips atexit)
     fflush(stdout); fflush(stderr);
     _exit(0);
+}
+#endif
+
+// after the presenter loop (the main thread): the fatal box, the game thread's stop, the dumps
+static int v2_main_finish(void) {
+    v2_fatal_box_at_exit();     // a fatal exit raised by the game thread: the box, then the process leaves (never returns then)
+
+    printf("V2_ONLY: quitting\n");
+    v2_game_thread_stop();
+    v2_net_shutdown();          // UX stage 8 step 3: tell the peers, close the sockets
+    v2_midi_shutdown();   // UX stage 11: V2_MIDI_DUMP
+    // Golden end-state channel at the max-frames/window-close exit — same
+    // idempotent dump the quit sites call (V2_GOLDEN_DUMP / V2_SAVE_STATE).
+    headless_golden_dump();
+    return 0;
+}
+
+#ifdef __EMSCRIPTEN__
+extern SDL_Window* myWindow_v2;   // render_v2.cpp
+// one animation frame of the browser build: v2_presenter_loop's body, the quit after it
+static void v2_web_frame(void) {
+    if (!need_quit) { if (myWindow_v2) v2_presenter_iteration(); return; }
+    emscripten_cancel_main_loop();
+    exit(v2_main_finish());
 }
 #endif
 
@@ -313,15 +340,13 @@ int main(int argc, char* argv[]) {
     // to render.cpp): the render thread ticked at ≈ 57 Hz (SDL_Delay(15) → ~17.5 ms on the
     // Linux scheduler), one word_3287c DEC per tick → ~17.5 ms per sub_10130 wait, three
     // flips + three waits per game frame ≈ 53 ms ≈ 18.9 FPS.
+#ifdef __EMSCRIPTEN__
+    // the browser build: a page may not block its main thread, so the presenter's iterations
+    // are the browser's animation frames (the refresh paces them, as the vsync present does
+    // natively); the call unwinds main and never returns, the quit is taken in v2_web_frame
+    emscripten_set_main_loop(v2_web_frame, 0, 1);
+#else
     v2_presenter_loop();
-    v2_fatal_box_at_exit();     // a fatal exit raised by the game thread: the box, then the process leaves (never returns then)
-
-    printf("V2_ONLY: quitting\n");
-    v2_game_thread_stop();
-    v2_net_shutdown();          // UX stage 8 step 3: tell the peers, close the sockets
-    v2_midi_shutdown();   // UX stage 11: V2_MIDI_DUMP
-    // Golden end-state channel at the max-frames/window-close exit — same
-    // idempotent dump the quit sites call (V2_GOLDEN_DUMP / V2_SAVE_STATE).
-    headless_golden_dump();
-    return 0;
+#endif
+    return v2_main_finish();
 }

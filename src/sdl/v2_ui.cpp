@@ -57,7 +57,7 @@ void v2_options_ensure_loaded() {
             else if (!strcmp(key, "snes_sound")) { if (val != 0) v2_options.sound_mode = 1; }   // the pre-UX11 key
             else if (!strcmp(key, "sound")) v2_options.sound_mode = (val >= 0 && val <= 3) ? val : 0;
             else if (!strcmp(key, "wide")) v2_options.wide = (val >= 0 && val <= 2) ? val : 0;
-            else if (!strcmp(key, "audio_buffer")) v2_options.audio_buffer = (val == 256 || val == 512 || val == 1024) ? val : 512;
+            else if (!strcmp(key, "audio_buffer")) v2_options.audio_buffer = (val == 256 || val == 512 || val == 1024) ? val : V2_AUDIO_BUFFER_DEFAULT;
             else if (!strcmp(key, "pacing")) v2_options.pacing = (val >= 0 && val <= 1) ? val : 0;
             else if (!strcmp(key, "stats")) v2_options.stats = val != 0;
             else if (!strcmp(key, "music_volume")) v2_options.music_volume = (val >= 0 && val <= 100) ? val : 100;
@@ -203,11 +203,15 @@ void v2_ui_toast(const char* text) { toast_text = text; toast_until = SDL_GetTic
 // --save-states: SAVE / LOAD SLOT and F2 / F3 without --debug — the LEVEL jump, the REWIND
 // and the debug keys stay --debug's
 bool g_v2_save_states = false;
-// the items the menu shows: LEVEL with --debug, SAVE / LOAD with --debug or --save-states
+// the items the menu shows: LEVEL with --debug, SAVE / LOAD with --debug or --save-states, the
+// network lobby not in the browser build (a page has no sockets)
 static bool item_shown(int it) {
     if (it < 0 || it >= IT_COUNT) return false;
     if (it == IT_LEVEL) return g_debug_mode;
     if (it == IT_SAVE || it == IT_LOAD) return g_debug_mode || g_v2_save_states;
+#ifdef __EMSCRIPTEN__
+    if (it == IT_NET_PLAYERS || it == IT_NET_DELAY || it == IT_NET_HOST || it == IT_NET_JOIN) return false;
+#endif
     return true;
 }
 // the cursor's next shown item in direction d (+1 / -1), wrapping

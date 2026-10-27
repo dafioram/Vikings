@@ -221,6 +221,11 @@ double v2_presenter_latch_margin_ms(void) {
     return margin;
 }
 static void v2_vsync_latch_sleep(void) {
+#ifdef __EMSCRIPTEN__
+    // the browser build: the iteration IS the animation frame (just after the refresh) and the
+    // page's main thread may not sleep — the snapshot is taken at once
+    g_latch_ticks = SDL_GetPerformanceCounter(); return;
+#endif
     if (!g_vs_locked.load(std::memory_order_acquire) || g_present_last == 0 || g_present_ema_ms <= 0.0) { g_latch_ticks = 0; return; }
     const double freq = (double)SDL_GetPerformanceFrequency();
     const double margin = v2_presenter_latch_margin_ms();
@@ -261,6 +266,9 @@ static bool v2_pacing_vrr(void) { return v2_options.pacing.load(std::memory_orde
 // presenter: wait for the game's next flip (VRR pacing), at most `ms` (menus and
 // waits without flips still get their presents)
 static void v2_presenter_wait_flip(uint32_t ms) {
+#ifdef __EMSCRIPTEN__
+    (void)ms; return;   // the browser build: the animation frame paces the presenter, the page's main thread never waits
+#endif
     static uint64_t seen = 0;
     std::unique_lock<std::mutex> lk(g_flip_mx);
     g_flip_cv.wait_for(lk, std::chrono::milliseconds(ms), [] { return g_flip_seq > seen || need_quit; });
@@ -385,6 +393,10 @@ static bool v2_present_hq(int filter, int PW, int H, double s, int* k_out) {
     }
     if (filter == 3) {
         static const xbrz::ScalerCfg cfg;
+#ifdef __EMSCRIPTEN__
+        // the browser build: the presenter is the page's main thread, which may not block on a join
+        xbrz::scale((size_t)k, g_hq_src.data(), g_hq_dst.data(), PW, H, xbrz::ColorFormat::ARGB, cfg, 0, H);
+#else
         unsigned nt = std::thread::hardware_concurrency(); if (nt < 1) nt = 1; if (nt > 8) nt = 8; if ((int)nt > H / 16) nt = (unsigned)(H / 16);
         std::vector<std::thread> th; int y0 = 0;
         const uint32_t* src = g_hq_src.data(); uint32_t* dst = g_hq_dst.data();
@@ -394,6 +406,7 @@ static bool v2_present_hq(int filter, int PW, int H, double s, int* k_out) {
             y0 = y1;
         }
         for (std::thread& t : th) t.join();
+#endif
     } else {
         static bool inited = false; if (!inited) { hqxInit(); inited = true; }
         (k == 2 ? hq2x_32 : k == 3 ? hq3x_32 : hq4x_32)(g_hq_src.data(), g_hq_dst.data(), PW, H);
@@ -915,7 +928,9 @@ void v2_presenter_init(void* _state)
 
   // Задержка чтобы первое окно успело инициализироваться
   printf("render_v2: Starting initialization (after 200ms delay)...\n");
-  SDL_Delay(200);
+#ifndef __EMSCRIPTEN__
+  SDL_Delay(200);   // (the browser build: the main thread does not sleep)
+#endif
   
   // SDL уже инициализирован первым окном, но это безопасно
   if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
