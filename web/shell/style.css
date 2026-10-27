@@ -1,0 +1,130 @@
+:root {
+  --bg: #f4f1ea;
+  --fg: #1f1d1a;
+  --muted: #6b655c;
+  --card: #fffdf8;
+  --line: #ddd6c8;
+  --accent: #b5482a;
+  --accent-fg: #fff;
+  --ok: #2f7a3c;
+  --warn-bg: #fff4d6;
+  --warn-line: #e3c36b;
+  --err-bg: #fde6e2;
+  --err-line: #e09b8f;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15140f;
+    --fg: #ece7dc;
+    --muted: #a39b8d;
+    --card: #1f1d18;
+    --line: #38342c;
+    --accent: #e0714f;
+    --accent-fg: #1a0e09;
+    --ok: #7bc287;
+    --warn-bg: #3a3017;
+    --warn-line: #7d6727;
+    --err-bg: #3d1d18;
+    --err-line: #8a3f33;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+code { font-size: 0.92em; }
+a { color: var(--accent); }
+
+#launcher { max-width: 680px; margin: 0 auto; padding: 32px 16px 48px; }
+header h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: 0.01em; }
+.sub { margin: 0 0 24px; color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.card h2 { font-size: 17px; margin: 0; display: inline-flex; align-items: center; gap: 8px; }
+.card h3 { font-size: 15px; margin: 0; }
+details.card > summary { cursor: pointer; list-style: none; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); }
+details.card[open] > summary::before { content: "▾"; }
+details.card > summary h2 { display: inline-flex; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.extra { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
+.hint { color: var(--muted); margin: 6px 0 10px; font-size: 13.5px; }
+.tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+       color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+.tag.req { color: var(--accent); border-color: var(--accent); }
+.status { font-size: 13px; color: var(--muted); }
+.status.ok { color: var(--ok); font-weight: 600; }
+.status.warn { color: #b8860b; font-weight: 600; }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  appearance: none; font: inherit; font-size: 14px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+  border-radius: 7px; padding: 7px 14px; display: inline-flex; align-items: center;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--accent); border-color: var(--err-line); background: transparent; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.btn.big { font-size: 17px; padding: 11px 28px; }
+.btn.small { font-size: 12.5px; padding: 4px 10px; }
+
+.banner { border-radius: 7px; padding: 9px 12px; margin: 8px 0 12px; font-size: 13.5px; border: 1px solid; }
+.banner.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+.banner.error { background: var(--err-bg); border-color: var(--err-line); }
+
+.field { display: block; font-size: 13.5px; color: var(--muted); }
+.field input { display: block; width: 100%; margin-top: 4px; font: 14px ui-monospace, monospace;
+               padding: 7px 9px; border-radius: 6px; border: 1px solid var(--line);
+               background: var(--bg); color: var(--fg); }
+
+.play-row { text-align: center; margin: 24px 0 8px; }
+.players { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.players select { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
+                  background: var(--card); color: var(--fg); }
+.play-row .hint { max-width: 460px; margin: 6px auto 14px; }
+.progress { width: 260px; max-width: 100%; height: 6px; margin: 12px auto 0; border-radius: 3px;
+            background: var(--line); overflow: hidden; }
+.progress > div { height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+#load-status { margin-top: 6px; }
+.slots { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13.5px; }
+.slots li { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 5px 0; border-top: 1px solid var(--line); }
+.slots li:first-child { border-top: none; }
+.slots .when { color: var(--muted); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin: 4px 0 10px; }
+.keys { margin-top: 10px; }
+footer { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 28px; }
+
+/* the game: the canvas fills the viewport; SDL follows its CSS size (a resizable window) */
+#game { position: fixed; inset: 0; background: #000; }
+#canvas { display: block; width: 100vw; height: 100vh; outline: none; background: #000; }
+#toolbar { position: fixed; top: 8px; right: 8px; display: flex; gap: 6px;
+           opacity: 0; transition: opacity 0.25s; }
+#toolbar.show, #toolbar:hover { opacity: 0.9; }
+#toolbar .btn { background: rgba(20, 20, 20, 0.75); color: #eee; border-color: #555; }
+/* the controllers: a toast for each change, a hint while co-op still waits for pads */
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 14px;
+         border-radius: 8px; background: rgba(20, 20, 20, 0.85); color: #eee; font-size: 14px;
+         pointer-events: none; max-width: calc(100vw - 32px); text-align: center; }
+.pad-hint { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 10px;
+            align-items: center; padding: 8px 10px 8px 14px; border-radius: 8px; max-width: calc(100vw - 32px);
+            background: rgba(20, 20, 20, 0.85); color: #eee; font-size: 14px; }
+.pad-hint .btn { background: transparent; color: #eee; border-color: #555; }
+.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.7); padding: 16px; }
+.overlay .card { max-width: 560px; width: 100%; }
+.overlay pre { white-space: pre-wrap; font-size: 12.5px; max-height: 40vh; overflow: auto; color: var(--muted); }
+[hidden] { display: none !important; }

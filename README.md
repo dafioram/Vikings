@@ -129,6 +129,19 @@ but refuse to run it with an explicit message.
 
 Override the triplet (e.g. for i686) with `make WIN=1 MINGW_TRIPLET=i686-w64-mingw32`.
 
+### Browser (Emscripten)
+
+```sh
+source ~/emsdk/emsdk_env.sh   # emsdk 4.0.15
+make WEB=1 -j$(nproc)          # → web/dist/ (the page, vikings.js, vikings.wasm)
+python3 web/serve.py           # http://localhost:8000
+```
+
+The player uploads `DATA.DAT` (and optionally the console content pack and
+the SC-55 / MT-32 ROMs) in the page; the files are kept in the browser's
+IndexedDB, never sent anywhere. Players beside Play starts local co-op (one
+game controller per player). Details and limits: [web/README.md](web/README.md).
+
 ### Build flags reference
 
 All flags compose. `make clean` between mode changes.
@@ -139,6 +152,7 @@ All flags compose. `make clean` between mode changes.
 | `STATIC=1`     | static-link `libgcc` + `libstdc++` |
 | `SDL_STATIC=1` | static-link `libSDL2.a` via `pkg-config --static` |
 | `WIN=1`        | mingw-w64 cross-compile → `vikings.exe` |
+| `WEB=1`        | Emscripten browser build → `web/dist/` (the game build only; see [web/README.md](web/README.md)) |
 | `TEST=1`       | test mode: the m2c original and the v2 mirror in lockstep (the verification build); without it `make` builds the game |
 | `HEADLESS=1`   | no-display testing build → `vikings_headless` (`TEST=1 HEADLESS=1` is the judge of the scenario replays) |
 
@@ -361,7 +375,7 @@ The three entry points have different surfaces.
 | Flag | Description |
 | --- | --- |
 | `--debug`                | same as test mode |
-| `--save-states`          | the save slots without the cheats: F2 saves, F3 loads, SAVE / LOAD SLOT in the F1 menu (`v2_save_<n>.state`) |
+| `--save-states`          | the save slots without the cheats: F2 saves, F3 loads, SAVE / LOAD SLOT in the F1 menu (`v2_save_<n>.state`; the browser build always passes it) |
 | `--keymap=<path>`        | same as test mode |
 | `--record-input=<file>`  | record SDL input to a frame-based `.inp` log |
 | `--replay-input=<file>`  | replay an `.inp` log instead of live keyboard |
@@ -581,6 +595,7 @@ src/
 tests/                    HEADLESS test scripts + replays
 tests/golden_states/      per-replay final-state dumps (the golden oracle)
 .github/workflows/build.yml  CI: test (HEADLESS smoke + replays, x86_64/arm64) ∥ linux (x86_64/arm64) + windows × {the game, test mode} → release
+web/                         the browser build's page (web/shell) and notes (web/README.md)
 ```
 
 `docs2/` holds reverse-engineering notes generated during the

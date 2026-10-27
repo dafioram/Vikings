@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- the deploy's build (the Makefile writes it into the page, launcher.js and version.json): a page,
+     a launcher or a module of another deploy left in the browser's cache is detected and reloaded -->
+<meta name="build" content="__BUILD__">
+<title>Lost Vikings — Browser</title>
+<!-- SharedArrayBuffer (the game's threads) needs a cross-origin isolated page; GitHub Pages
+     sends no COOP/COEP headers, so this service worker adds them (one reload on the first visit) -->
+<script src="coi-serviceworker.js"></script>
+<link rel="stylesheet" href="style.css?v=__BUILD__">
+</head>
+<body>
+<main id="launcher">
+  <header>
+    <h1>The Lost Vikings</h1>
+    <p class="sub">The native port of the 1992 DOS game, compiled to WebAssembly. Your game files stay in this browser
+      (IndexedDB) and are never uploaded to any server.</p>
+  </header>
+
+  <div id="env-error" class="banner error" hidden></div>
+
+  <section class="card" id="sec-data">
+    <div class="card-head">
+      <h2>DATA.DAT <span class="tag req">required</span></h2>
+      <span class="status" id="data-status">Not stored</span>
+    </div>
+    <p class="hint">The original game archive from a legal copy (GOG sells the game; the file lives in its install
+      directory). It is not included here.</p>
+    <div id="data-warn" class="banner warn" hidden></div>
+    <div class="actions">
+      <label class="btn">Choose DATA.DAT…<input type="file" id="in-data" hidden></label>
+      <button class="btn ghost" id="rm-data" hidden>Remove</button>
+    </div>
+  </section>
+
+  <details class="card" id="sec-extra">
+    <summary><h2>Extra content <span class="tag">optional</span></h2></summary>
+
+    <div class="extra" id="ex-content">
+      <div class="card-head">
+        <h3>Console content pack</h3>
+        <span class="status" data-status>Not stored</span>
+      </div>
+      <p class="hint">The <code>content/</code> folder made by <code>make content</code> (SNES / Genesis material).
+        Only its <code>.compiled/</code> and <code>exe_static.bin</code> are kept. Choose the folder, or a .zip of it.</p>
+      <div class="actions">
+        <label class="btn">Choose folder…<input type="file" data-in="dir" webkitdirectory directory multiple hidden></label>
+        <label class="btn">Choose .zip…<input type="file" data-in="zip" accept=".zip,application/zip" hidden></label>
+        <button class="btn ghost" data-rm hidden>Remove</button>
+      </div>
+    </div>
+
+    <div class="extra" id="ex-sc55">
+      <div class="card-head">
+        <h3>Roland SC-55 ROMs</h3>
+        <span class="status" data-status>Not stored</span>
+      </div>
+      <p class="hint">For SOUND = SC55 (F1 menu). The ROM images under their Nuked-SC55 names.</p>
+      <div class="actions">
+        <label class="btn">Choose ROM files…<input type="file" data-in="files" multiple hidden></label>
+        <button class="btn ghost" data-rm hidden>Remove</button>
+      </div>
+    </div>
+
+    <div class="extra" id="ex-mt32">
+      <div class="card-head">
+        <h3>Roland MT-32 ROMs</h3>
+        <span class="status" data-status>Not stored</span>
+      </div>
+      <p class="hint">For SOUND = MT32. A control ROM and a PCM ROM of an MT-32 or CM-32L that Munt knows (recognised by
+        content).</p>
+      <div class="actions">
+        <label class="btn">Choose ROM files…<input type="file" data-in="files" multiple hidden></label>
+        <button class="btn ghost" data-rm hidden>Remove</button>
+      </div>
+    </div>
+  </details>
+
+  <details class="card" id="sec-saves">
+    <summary><h2>Saves &amp; backup</h2></summary>
+    <p class="hint">In the game, <b>F2</b> saves the whole game state and <b>F3</b> loads it; the slot (1–9) is
+      SAVE SLOT / LOAD SLOT in the F1 menu.</p>
+    <ul class="slots" id="slot-list"></ul>
+    <div class="extra">
+      <h3>Backup</h3>
+      <p class="hint">Everything stored here as one .zip — settings, key bindings, save states, and optionally the
+        game files — to keep a copy or to move to another browser. Importing adds to what is stored and replaces
+        files of the same name.</p>
+      <label class="check"><input type="checkbox" id="bk-data" checked> Include DATA.DAT and the extra content</label>
+      <div class="actions">
+        <button class="btn" id="bk-export">Export backup</button>
+        <label class="btn">Import backup…<input type="file" id="bk-import" accept=".zip,application/zip" hidden></label>
+      </div>
+    </div>
+  </details>
+
+  <details class="card" id="sec-adv">
+    <summary><h2>Advanced</h2></summary>
+    <label class="field">Command-line arguments
+      <input type="text" id="in-args" placeholder="e.g. --debug" spellcheck="false" autocomplete="off">
+    </label>
+    <p class="hint">Stored settings: <span id="cfg-list">none</span>.</p>
+    <div class="actions">
+      <button class="btn ghost" id="rm-cfg">Reset settings &amp; key bindings</button>
+      <button class="btn danger" id="rm-all">Delete all stored data</button>
+    </div>
+  </details>
+
+  <div class="play-row">
+    <div class="players">
+      <label for="in-players">Players</label>
+      <select id="in-players">
+        <option value="1" selected>1</option>
+        <option value="2">2 — co-op</option>
+        <option value="3">3 — co-op</option>
+      </select>
+    </div>
+    <p class="hint">Co-op: one game controller per player (press a button on each after Play); the keyboard plays
+      with the first one. Player 2 takes a viking even without a controller — play alone with 1.</p>
+    <button class="btn primary big" id="play" disabled>Loading…</button>
+    <div class="progress" id="load-bar" hidden><div></div></div>
+    <p class="hint" id="load-status" hidden></p>
+    <p class="hint keys">F1 options · F2 / F3 save / load · F11 fullscreen · keys as in the DOS game (rebindable in
+      <code>vikings_keymap.cfg</code>)</p>
+  </div>
+
+  <footer>
+    <a href="https://github.com/dafioram/Vikings">Source</a> ·
+    Requires a browser with WebAssembly threads (current Chrome, Edge, Firefox, Safari).
+    <br><span id="build-label">Build __BUILD__</span>
+  </footer>
+</main>
+
+<div id="game" hidden>
+  <canvas id="canvas" tabindex="-1"></canvas>
+  <div id="toolbar">
+    <button class="btn small" id="tb-fs" title="Fullscreen">⛶ Fullscreen</button>
+    <button class="btn small" id="tb-quit" title="Back to the launcher">✕ Quit</button>
+  </div>
+  <div id="pad-hint" class="pad-hint" hidden>
+    <span id="pad-hint-text"></span>
+    <button class="btn small" id="pad-hint-close" title="Dismiss">✕</button>
+  </div>
+  <div id="pad-toast" class="toast" hidden></div>
+  <div id="ended" class="overlay" hidden>
+    <div class="card">
+      <h2 id="ended-title">The game has ended</h2>
+      <pre id="ended-log"></pre>
+      <button class="btn primary" id="ended-reload">Back to the launcher</button>
+    </div>
+  </div>
+</div>
+
+<script src="launcher.js?v=__BUILD__"></script>
+</body>
+</html>
