@@ -16,7 +16,7 @@ python3 web/serve.py            # http://localhost:8000 (sends the COOP / COEP h
 
 | In the page | In the game's working directory (`/game`) |
 | --- | --- |
-| DATA.DAT (required) | `DATA.DAT` |
+| DATA.DAT (required) — chosen, or dropped anywhere on the page | `DATA.DAT` |
 | Console content pack — the `content/` folder or a .zip of it | `content/.compiled/*`, `content/exe_static.bin` (the rest of the open tree is not kept) |
 | SC-55 ROMs | `roms/sc55/*` |
 | MT-32 ROMs | `roms/mt32/*` |

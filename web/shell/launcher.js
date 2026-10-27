@@ -295,12 +295,42 @@
   }
 
   function wire() {
-    $('in-data').addEventListener('change', (ev) => guarded(async () => {
-      const f = ev.target.files[0]; ev.target.value = '';
-      if (!f) return;
+    // DATA.DAT from the picker or dropped on the page: stored under its DOS name, one copy
+    const storeData = (f) => guarded(async () => {
       const old = dataPath(); if (old) FS.unlink(old);
       writeFile('DATA.DAT', new Uint8Array(await f.arrayBuffer()));
-    }));
+    });
+    $('in-data').addEventListener('change', (ev) => {
+      const f = ev.target.files[0]; ev.target.value = '';
+      if (f) storeData(f);
+    });
+    // a file dragged over the launcher lands on the DATA.DAT card; over a running game a drop
+    // is swallowed (the browser's default would open the file in place of the game)
+    let dragDepth = 0;
+    const isFileDrag = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    const dragOff = () => { dragDepth = 0; document.body.classList.remove('dragging'); };
+    window.addEventListener('dragenter', (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      if (!running && FS && dragDepth++ === 0) document.body.classList.add('dragging');
+    });
+    window.addEventListener('dragover', (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = running || !FS ? 'none' : 'copy';
+    });
+    window.addEventListener('dragleave', (e) => { if (isFileDrag(e) && --dragDepth <= 0) dragOff(); });
+    window.addEventListener('drop', (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      dragOff();
+      if (running || !FS) return;
+      const files = Array.from(e.dataTransfer.files);
+      const f = files.find((x) => /\.dat$/i.test(x.name));
+      if (f) storeData(f);
+      else alert('Drop the game\u2019s DATA.DAT file' + (files.length ? ' (got ' + files.map((x) => x.name).join(', ') + ')' : '') +
+                 '. Extra content and backups have their own buttons.');
+    });
     $('rm-data').addEventListener('click', () => guarded(async () => { const p = dataPath(); if (p) FS.unlink(p); }));
 
     for (const id in EXTRAS) {

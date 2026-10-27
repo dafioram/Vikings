@@ -82,6 +82,13 @@ details.card > summary h2 { display: inline-flex; }
 .btn.big { font-size: 17px; padding: 11px 28px; }
 .btn.small { font-size: 12.5px; padding: 4px 10px; }
 
+/* a file dragged over the launcher: the DATA.DAT card is where it lands */
+#sec-data { position: relative; }
+#sec-data .drop-hint { display: none; }
+body.dragging #sec-data { outline: 2px dashed var(--accent); outline-offset: 3px; }
+body.dragging #sec-data .drop-hint { display: grid; place-items: center; position: absolute; inset: 0;
+  border-radius: 10px; background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--accent); font-weight: 600; font-size: 16px; pointer-events: none; }
 .banner { border-radius: 7px; padding: 9px 12px; margin: 8px 0 12px; font-size: 13.5px; border: 1px solid; }
 .banner.warn { background: var(--warn-bg); border-color: var(--warn-line); }
 .banner.error { background: var(--err-bg); border-color: var(--err-line); }

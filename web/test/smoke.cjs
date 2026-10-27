@@ -90,6 +90,30 @@ try {
   await ready();
   check(/checksum mismatch/.test(await status('#data-status')), 'DATA.DAT survives a reload');
   check(/3 files/.test(await status('#ex-content [data-status]')), 'the content pack survives a reload');
+
+  // drag and drop: a dropped *.dat is the archive (the card highlights during the drag), anything else is refused
+  const drop = (name, size) => page.evaluate(([name, size]) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([new Uint8Array(size)], name));
+    const ev = (type) => new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true });
+    document.body.dispatchEvent(ev('dragenter'));
+    const lit = document.body.classList.contains('dragging');
+    document.body.dispatchEvent(ev('dragover'));
+    const dropped = ev('drop');
+    document.body.dispatchEvent(dropped);
+    return { lit, prevented: dropped.defaultPrevented, after: document.body.classList.contains('dragging') };
+  }, [name, size]);
+  await page.click('#rm-data');
+  await page.waitForFunction(() => /Not stored/.test(document.querySelector('#data-status').textContent), null, { timeout: 10000 });
+  const nDialogs = dialogs.length;
+  const bad = await drop('notes.txt', 10);
+  await page.waitForTimeout(300);
+  check(dialogs.length === nDialogs + 1 && /DATA\.DAT/.test(dialogs[dialogs.length - 1]) && /Not stored/.test(await status('#data-status')),
+        'a dropped file that is not a .dat is refused with a message');
+  const good = await drop('Data.Dat', 1570444);
+  await page.waitForFunction(() => /Stored/.test(document.querySelector('#data-status').textContent), null, { timeout: 10000 });
+  check(good.lit && good.prevented && !good.after && bad.prevented, 'the card highlights during a file drag and the drop does not open the file');
+  check(/checksum mismatch/.test(await status('#data-status')), 'a dropped DATA.DAT is stored and checked (any case of the name)');
   await page.click('#ex-content [data-rm]');
   await page.click('#ex-mt32 [data-rm]');
   const gone = await page.waitForFunction(() => ['#ex-content', '#ex-mt32'].every((id) =>
