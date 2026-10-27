@@ -21,6 +21,7 @@ endif
 # and replaced with no-op stubs — gameplay unaffected, only platform-native
 # instrumentation is lost.
 WIN ?= 0
+WEB ?= 0
 ifeq ($(WIN),1)
 MINGW_TRIPLET ?= x86_64-w64-mingw32
 CC         := $(MINGW_TRIPLET)-gcc
@@ -38,6 +39,35 @@ PLATFORM_LDFLAGS := -static-libgcc -static-libstdc++
 PLATFORM_LIBS    := -lws2_32       # UX stage 8 step 3: winsock for the lockstep transport (v2_net.cpp)
 EXE_NAME   := vikings.exe
 OBJDIR     := .obj-win
+else ifeq ($(WEB),1)
+# WEB=1: the browser build (Emscripten, web/README.md) → web/dist/vikings.{js,wasm}
+# beside web/shell/*: the game build (no TEST / HEADLESS), SDL2 from the
+# Emscripten port, the game and hang-detector threads as pthreads (the page
+# needs cross-origin isolation for SharedArrayBuffer: coi-serviceworker.js).
+# The presenter runs from the browser's animation frame (v2_main.cpp
+# __EMSCRIPTEN__), the files live in an IndexedDB-backed /game (web/shell).
+CC         := emcc
+CXX        := em++
+SDL        := -sUSE_SDL=2
+DBG        := -O2
+PLATFORM_DEFINES := -pthread
+# the static images and the default keymap are embedded at /static (copied
+# into /game at every start by web/shell/launcher.js)
+WEB_EMBED  := --embed-file ds_static.bin@/static/ds_static.bin \
+              --embed-file exe_static.bin@/static/exe_static.bin \
+              --embed-file vikings_keymap.cfg@/static/vikings_keymap.cfg
+# -O1 at the link (after $(DBG)'s -O2: the last one wins): Binaryen's -O2 inlines every function
+# called once, the executors' pieces into their routers, into one function of 37 MB that no browser
+# compiles (the limit is 7 654 321 bytes, web/test/wasm_limits.py); the units are -O2 already
+PLATFORM_LDFLAGS := -O1 -pthread -sPTHREAD_POOL_SIZE=12 \
+              -sINITIAL_MEMORY=268435456 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=2147483648 \
+              -sSTACK_SIZE=8388608 -sDEFAULT_PTHREAD_STACK_SIZE=8388608 \
+              -sINVOKE_RUN=0 -sEXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1 \
+              -sEXPORTED_RUNTIME_METHODS=FS,callMain -sENVIRONMENT=web,worker \
+              $(WEB_EMBED)
+PLATFORM_LIBS    := -lidbfs.js
+EXE_NAME   := web/dist/vikings.js
+OBJDIR     := .obj-web
 else
 CC         := gcc
 CXX        := g++
@@ -457,8 +487,28 @@ $(KEYMAP_EDITOR_OBJDIR)/%.o: %.cpp
 
 -include $(KEYMAP_EDITOR_OBJS:.o=.d)
 
+ifeq ($(WEB),1)
+# the browser build: the page (web/shell) beside the module, the embedded files relink it.
+# The deploy's build (the commit, -dirty with local changes) is written into the page and the
+# launcher (__BUILD__) and into version.json with the module's size: the launcher compares them
+# and loads vikings.js / vikings.wasm under ?v=<build> (web/README.md, the cache of a deploy)
+WEB_BUILD := $(shell git rev-parse --short=8 HEAD 2>/dev/null || echo dev)$(shell git diff --quiet HEAD -- 2>/dev/null || echo -dirty)
+WEB_DATE  := $(shell git log -1 --format=%cs 2>/dev/null)
+WEB_SHELL := $(patsubst web/shell/%,web/dist/%,$(wildcard web/shell/*))
+all: $(WEB_SHELL) web/dist/version.json
+.PHONY: web-force
+web-force: ;
+web/dist/%: web/shell/% web-force
+	@mkdir -p $(dir $@)
+	sed 's/__BUILD__/$(WEB_BUILD)/g' $< > $@
+web/dist/version.json: $(EXE_NAME) web-force
+	printf '{"build":"%s","date":"%s","wasm":%s}\n' '$(WEB_BUILD)' '$(WEB_DATE)' "$$(wc -c < web/dist/vikings.wasm | tr -d ' ')" > $@
+$(EXE_NAME): ds_static.bin exe_static.bin vikings_keymap.cfg
+endif
+
 $(EXE_NAME): $(ALL_OBJS)
-	$(CXX) $(DBG) $(PLATFORM_LDFLAGS) $(COV_LDFLAGS) -o $@ $^ $(SDL) $(PLATFORM_LIBS)
+	@mkdir -p $(dir $@)
+	$(CXX) $(DBG) $(PLATFORM_LDFLAGS) $(COV_LDFLAGS) -o $@ $(filter %.o,$^) $(SDL) $(PLATFORM_LIBS)
 
 ifdef COV_SEG000
 $(OBJDIR)/src/vikings.exe_seg000.o: CXXFLAGS += --coverage
@@ -473,6 +523,6 @@ $(OBJDIR)/%.o: %.c
 	$(CC) -c $(CFLAGS) $(ADL_DEFINES) -MMD -MP -o $@ $<
 
 clean:
-	rm -rf .obj .obj-* vikings vikings.exe vikings_headless vikings_keymap_editor vikings_keymap_editor.exe
+	rm -rf .obj .obj-* vikings vikings.exe vikings_headless vikings_keymap_editor vikings_keymap_editor.exe web/dist
 
 -include $(DEPS)
