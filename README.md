@@ -139,10 +139,11 @@ python3 web/serve.py           # http://localhost:8000
 
 The player uploads `DATA.DAT` (and optionally the console content pack and
 the SC-55 / MT-32 ROMs) in the page; the files are kept in the browser's
-IndexedDB, never sent anywhere. Players beside Play starts local co-op (one
-game controller per player). `.github/workflows/web.yml` builds it on every push
-and deploys it to GitHub Pages from the default branch. Details, limits and the
-one-time Pages setup: [web/README.md](web/README.md).
+IndexedDB, never sent anywhere. The page starts 2-player local co-op by default
+(one game controller per player; Players 1 for a solo game).
+`.github/workflows/web.yml` builds it on every push and deploys it to GitHub
+Pages from the `browser` branch. Details, limits and the one-time Pages setup:
+[web/README.md](web/README.md).
 
 ### Build flags reference
 
@@ -597,7 +598,7 @@ src/
 tests/                    HEADLESS test scripts + replays
 tests/golden_states/      per-replay final-state dumps (the golden oracle)
 .github/workflows/build.yml  CI: test (HEADLESS smoke + replays, x86_64/arm64) ∥ linux (x86_64/arm64) + windows × {the game, test mode} → release
-.github/workflows/web.yml    the browser build (make WEB=1) → GitHub Pages from the default branch
+.github/workflows/web.yml    the browser build (make WEB=1) → GitHub Pages from the browser branch
 web/                         the browser build's page (web/shell) and notes (web/README.md)
 ```
 

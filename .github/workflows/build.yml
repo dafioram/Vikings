@@ -1,10 +1,10 @@
 name: Build
 
+# The browser branch deploys the web build (web.yml): the native builds and the rolling
+# `latest` release run only for a v* tag or a manual run here (on every push upstream).
 on:
   push:
-    branches: ['**']
     tags: ['v*']
-  pull_request:
   workflow_dispatch:
 
 # Lower default token to read; release job opts in to write.

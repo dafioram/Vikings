@@ -1,9 +1,11 @@
 name: Web
 
 # The browser build (web/README.md): Emscripten → web/dist (the page, vikings.js, vikings.wasm),
-# deployed to GitHub Pages from the default branch. Every other push builds it only, so a
+# deployed to GitHub Pages from the `browser` branch (this fork: the default branch follows the
+# upstream repository and carries no browser build). Every other push builds it only, so a
 # branch shows whether the browser build still compiles. One-time setup of the repository:
-# Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# Settings → Pages → Build and deployment → Source: "GitHub Actions", and
+# Settings → Environments → github-pages → Deployment branches: allow `browser`.
 on:
   push:
     branches: ['**']
@@ -76,7 +78,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    if: github.event_name != 'pull_request' && github.ref_name == 'browser'
     runs-on: ubuntu-latest
     permissions:
       pages: write

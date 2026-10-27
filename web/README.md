@@ -37,7 +37,7 @@ refusal — the game itself rejects a foreign archive with the original's messag
 module (`/static`) and copied into `/game` at every start (the keymap only when none is
 stored, so a rebind survives).
 
-**Players** (beside Play) is `--coop=N`, 1 by default: 2 or 3 is local co-op with one game controller
+**Players** (beside Play) is `--coop=N`, 2 by default: local co-op with one game controller
 per player — SDL reads the browser's Gamepad API ("Standard Gamepad" layout), the first
 controller is player 1 beside the keyboard, the second player 2. A browser shows a pad to
 the page only after one of its buttons is pressed. Player 2 owns a viking from the level's
@@ -110,7 +110,7 @@ The smoke test drives the page in headless Chromium without game data: the isola
 uploads kept across a reload, the md5 warning, a content pack from a .zip, the removals,
 the build label and the cleared load progress, a backup's import (a save slot listed, foreign
 paths skipped), export, deletion and re-import, the controller toast, and Play (with
-`--coop=1` and `--save-states`) with an archive of zeros, which boots the game to its
+`--coop=2` and `--save-states`) with an archive of zeros, which boots the game to its
 archive check and ends it with the original's "Data.dat has been corrupted". The workflow
 runs both.
 
@@ -124,6 +124,13 @@ runs both.
 ## Deploying
 
 `.github/workflows/web.yml` builds on every push and pull request and deploys `web/dist`
-to GitHub Pages from the default branch. One-time setup of the repository:
-**Settings → Pages → Build and deployment → Source: GitHub Actions**. The site is
-`https://<owner>.github.io/<repo>/`.
+to GitHub Pages from the **`browser`** branch (the default branch follows the upstream
+repository). One-time setup of the repository:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. **Settings → Environments → github-pages → Deployment branches and tags**: add `browser`
+   (the environment GitHub creates allows the default branch only).
+
+The site is `https://<owner>.github.io/<repo>/`. On this branch the native `Build` workflow
+(the Linux / Windows bundles and the rolling `latest` release) runs only for a `v*` tag or a
+manual *Run workflow*.

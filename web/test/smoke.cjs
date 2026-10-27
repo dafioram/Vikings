@@ -156,7 +156,7 @@ try {
   const tail = (await page.textContent('#ended-log')) + '\n' + dialogs.join('\n');
   check(/corrupted/i.test(tail), 'the game ends with "Data.dat has been corrupted"');
   check(logs.some((l) => /V2_ONLY: loaded \d+ bytes from exe_static\.bin/.test(l)), 'the static image is read from the working directory');
-  check(logs.some((l) => /--coop: 1 players/.test(l)), 'Play passes the Players choice (--coop=1 by default)');
+  check(logs.some((l) => /--coop: 2 players/.test(l)), 'Play passes the Players choice (--coop=2 by default here)');
   check(logs.some((l) => /--save-states: F2 saves/.test(l)), 'Play enables the save slots (--save-states)');
   check(!logs.some((l) => /PAGEERROR|RuntimeError|Aborted/.test(l)), 'no page error or abort');
 } catch (e) {
