@@ -96,7 +96,23 @@ stored settings or everything.
   reload.
 - **The link** is `-O1` (the units are compiled `-O2`): Binaryen's `-O2` inlines every function
   called once, which folds the generated executors into one 37 MB function, and browsers
-  refuse any function body over 7 654 321 bytes.
+  refuse any function body over 7 654 321 bytes. `web/test/wasm_limits.py` checks the module.
+
+## Tests
+
+```sh
+python3 web/test/wasm_limits.py web/dist/vikings.wasm     # every function within the browsers' limit
+python3 web/serve.py --port 8765 &
+node web/test/smoke.cjs http://localhost:8765/            # needs playwright (npm install --no-save playwright)
+```
+
+The smoke test drives the page in headless Chromium without game data: the isolation,
+uploads kept across a reload, the md5 warning, a content pack from a .zip, the removals,
+the build label and the cleared load progress, a backup's import (a save slot listed, foreign
+paths skipped), export, deletion and re-import, the controller toast, and Play (with
+`--coop=1` and `--save-states`) with an archive of zeros, which boots the game to its
+archive check and ends it with the original's "Data.dat has been corrupted". The workflow
+runs both.
 
 ## Not in the browser build
 
@@ -104,3 +120,10 @@ stored settings or everything.
 - Test mode, HEADLESS, the keymap editor, the level editor (`tools/assets/edit_server.py`)
   and `make content`: they stay native. Build the content pack natively, then upload it.
 - Touch controls.
+
+## Deploying
+
+`.github/workflows/web.yml` builds on every push and pull request and deploys `web/dist`
+to GitHub Pages from the default branch. One-time setup of the repository:
+**Settings → Pages → Build and deployment → Source: GitHub Actions**. The site is
+`https://<owner>.github.io/<repo>/`.
